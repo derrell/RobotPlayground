@@ -1,0 +1,111 @@
+{
+  "name"    : "Playground config.json",
+
+  "include" :
+  [
+    {
+      "path" : "${QOOXDOO_PATH}/tool/data/config/application.json"
+    }
+  ],
+  
+  "default-job" : "source",
+
+  "let" :
+  {
+    "APPLICATION"  : "playground",
+    "QOOXDOO_PATH" : "../../../../../qooxdoo.git/trunk/qooxdoo/",
+    "QXTHEME"      : "qx.theme.Modern",
+    "LOCALES"      : [ "en", "de","ro"],
+    "OPTIMIZE"     : [],
+    "ROOT"         : "."
+  },
+  
+  "jobs" :
+  {
+    // this one so that source, build-script and build-resources use common settings
+    "playground-compile" :
+    {
+      "include" :     
+      [
+        "${APPLICATION}.*",
+        "qx.*"
+      ],
+
+      "exclude" :
+      [
+        "qx.test.*",
+        "qx.dev.unit.*",
+        "playground.test.*"
+      ],
+
+      "variants" :
+      {
+        "=qx.debug" : ["on"]
+      }
+    },
+
+    "source" :
+    {
+      "compile-options" :
+      {
+        "uris" :
+        {
+          "add-nocache-param" : false
+        }
+      }
+    },
+
+    "build" :
+    {
+      "=run" :
+      [
+        "build-script",
+        "build-resources",
+        "build-files",
+        "build-backend"
+      ]
+    },
+
+    "build-backend" :
+    {
+      "shell" :
+      {
+        "command"   :
+        [
+	  "rm  -f /home/derrell/ME/Dropbox/tmp/playground/index.html",
+	  "rm  -f /home/derrell/ME/Dropbox/tmp/finch.log",
+	  "rm -rf /home/derrell/ME/Dropbox/tmp/playground/script",
+	  "rm -rf /home/derrell/ME/Dropbox/tmp/playground/resource",
+          "rsync -av ./build/ /home/derrell/ME/Dropbox/tmp/playground/"
+        ]
+      }
+    },
+
+    "build-script" :
+    {
+      "extend" : [ "playground-compile" ],
+
+      "settings" :
+      {
+        "qx.nativeScrollBars" : true
+      }
+    },
+
+
+    "build-resources" :
+    {
+      "extend" : [ "playground-compile" ]
+    },
+
+    
+    "source" :
+    {
+      "extend" : [ "playground-compile" ],
+
+      "settings" :
+      {
+        "qx.nativeScrollBars" : true
+      }
+    }    
+  }
+}

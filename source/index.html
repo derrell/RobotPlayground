@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>qooxdoo &raquo; Playground</title>
+  <style type="text/css">
+  .qx_samples { display:none }
+  </style>
+
+  <script type="text/javascript" charset="utf-8">
+  
+    // fix Object.keys for IE
+    // https://github.com/ajaxorg/ace/issues/139
+    if (!Object.keys) {
+      var shadowedKeys = [
+        "isPrototypeOf",
+        "hasOwnProperty",
+        "toLocaleString",
+        "toString",
+        "valueOf",
+        "constructor"];
+
+      Object.keys = ({
+        "BROKEN_IE" : function(map)
+        {
+          var arr = [];
+          var hasOwnProperty = Object.prototype.hasOwnProperty;
+          for (var key in map) {
+            if (hasOwnProperty.call(map, key)) {
+              arr.push(key);
+            }
+          }
+
+          // IE does not return "shadowed" keys even if they are defined directly
+          // in the object. This is incompatible with the ECMA standard!!
+          // This is why this checks are needed.
+          for (var i=0, a=shadowedKeys, l=a.length; i<l; i++)
+          {
+            if (hasOwnProperty.call(map, a[i])) {
+              arr.push(a[i]);
+            }
+          }
+
+          return arr;
+        },
+
+        "default" : function(map)
+        {
+          var arr = [];
+
+          var hasOwnProperty = Object.prototype.hasOwnProperty;
+          for (var key in map) {
+            if (hasOwnProperty.call(map, key)) {
+              arr.push(key);
+            }
+          }
+
+          return arr;
+        }
+      })[
+        (function() {for (var key in {toString : 1}) { return key }})() !== "toString" ? "BROKEN_IE" : "default"
+      ];
+    }
+  </script>
+
+  <script src="resource/playground/editor/ace.js" type="text/javascript" charset="utf-8"></script>
+  <script src="resource/playground/editor/theme-eclipse.js" type="text/javascript" charset="utf-8"></script>
+  <script src="resource/playground/editor/mode-javascript.js" type="text/javascript" charset="utf-8"></script>
+
+  <script type="text/javascript">if (location.hostname === "demo.qooxdoo.org") document.write('<script src="http://resources.qooxdoo.org/script/analytics.js" type="text/javascript"></scr' + 'ipt>');</script>
+
+</head>
+<body>
+
+<!-- ********************************************************************** -->
+
+<textarea class="qx_samples" title="Finch Control">
+/**
+ * Function that is called when sensor data is available.
+ *
+ * @param e {qx.event.type.Data}
+ *   The event data object. The sensor values are available from e.getData().
+ */
+function _onSensorData(e)
+{
+  var result = e.getData();
+
+  // Set the sensor reading textboxes according to returned values
+  sensors["accelerometer.x"].setValue(result.accelerometer.x.toString());
+  sensors["accelerometer.y"].setValue(result.accelerometer.y.toString());
+  sensors["accelerometer.z"].setValue(result.accelerometer.z.toString());
+
+  sensors["light.left"].setValue(result.light.left.toString());
+  sensors["light.right"].setValue(result.light.right.toString());
+
+  sensors["obstacle.left"].setValue(result.obstacle.left.toString());
+  sensors["obstacle.right"].setValue(result.obstacle.right.toString());
+
+  sensors["temperature"].setValue(result.temperature.toString());
+
+  // Count this request
+  ++requestCount;
+
+  // Update the requests/second counter
+  sensors["requests/millisecond"].setValue(
+    (requestCount /
+     (new Date().getTime() - firstRequestTime)).toString());
+}
+
+/**
+ * Create a slider group. A group consists of the slider and labels for
+ * that slider's minimum, maximum, and current value. The current value
+ * label is set as the slider is moved.
+ *
+ * @param slider {qx.ui.form.Slider}
+ *   The slider control to place in this group
+ *
+ * @return {Map}
+ *   A map containing members: slider, minimum, maximum, and value. The
+ *   slider member contains the slider control provided as the
+ *   parameter. The minimum, maximum, and value members are
+ *   qx.ui.basic.Label controls.
+ */
+function createSliderGroup(slider)
+{
+  // Create the map to be returned
+  var group =
+  {
+    slider  : slider,
+    minimum : new qx.ui.basic.Label("Min: " + slider.getMinimum()),
+    maximum : new qx.ui.basic.Label("Max: " + slider.getMaximum()),
+    value   : new qx.ui.basic.Label(slider.getValue().toString())
+  };
+
+  // Arrange for the value label to be changed as the slider is adjusted
+  slider.addListener("changeValue", function(e) 
+  {
+    group.value.setValue(slider.getValue().toString());
+  });
+
+    return group;
+}
+
+//
+// MAIN PROGRAM
+//
+
+    
+// Get a Finch controller
+var finch = new playground.Finch();
+
+// Create a list of sliders to be created
+var sliders = [];
+
+// Create the slider for the left wheel power setting
+var powerLeft = new qx.ui.form.Slider();
+powerLeft.set(
+  {
+    minimum    : -255,
+    maximum    : 255,
+    singleStep : 5,
+    pageStep   : 20,
+    value      : 0,
+    width      : 20
+  });
+
+// When the slider changes value, set the wheel power
+powerLeft.addListener("changeValue", 
+  function(e)
+  {
+    finch.setWheelPower(powerLeft.getValue(), powerRight.getValue());
+  });
+sliders.push(createSliderGroup(powerLeft));
+
+// Create the wide slider for controlling both wheels' power
+var powerBoth = new qx.ui.form.Slider();
+powerBoth.set(
+  {
+    minimum    : -255,
+    maximum    : 255,
+    singleStep : 5,
+    pageStep   : 20,
+    value      : 0,
+    width      : 40
+  });
+sliders.push(createSliderGroup(powerBoth));
+
+// Create the slider for the right wheel power setting
+var powerRight = new qx.ui.form.Slider();
+powerRight.set(
+  {
+    minimum    : -255,
+    maximum    : 255,
+    singleStep : 5,
+    pageStep   : 20,
+    value      : 0,
+    width      : 20
+  });
+
+// When the slider changes value, set the wheel power
+powerRight.addListener("changeValue", 
+  function(e)
+  {
+    finch.setWheelPower(powerLeft.getValue(), powerRight.getValue());
+  });
+sliders.push(createSliderGroup(powerRight));
+
+// Create a grid container where the sliders will reside
+var grid = new qx.ui.layout.Grid();
+var container = new qx.ui.container.Composite(grid);
+
+// Set container and grid attributes
+container.setPadding(20);
+container.setWidth(530);
+container.setHeight(400);
+
+grid.setSpacing(5);
+grid.setRowFlex(0, 1);
+grid.setRowFlex(1, 1);
+grid.setRowFlex(2, 1);
+
+grid.setRowAlign(0, "left", "top");
+grid.setRowAlign(1, "left", "middle");
+grid.setRowAlign(2, "left", "bottom");
+
+// We'll start at column 0
+var col = 0;
+
+// For each slider...
+for (var i = 0; i < sliders.length; i++)
+{
+  // Gain quick access to this slider
+  var group = sliders[i];
+  group.slider.setOrientation("vertical");
+
+  // Add the slider to the grid
+  container.add(group.slider, 
+                {
+                  row     : 0, 
+                  column  : col, 
+                  rowSpan : 3,
+                  colSpan : 1
+                });
+
+  // Add the minimum value label to the grid
+  container.add(group.minimum,
+                {
+                  row    : 0,
+                  column : col+1
+                });
+
+  // Add the current value label to the grid
+  container.add(group.value,
+                {
+                  row    : 1,
+                  column : col+1
+                });
+
+  // Add the maximum value label to the grid
+  container.add(group.maximum,
+                {
+                  row    : 2,
+                  column : col+1
+                });
+
+  // Make it look pretty
+  grid.setColumnMinWidth(col+1, 80);
+  grid.setColumnWidth(col+2, 20);
+
+  // Update column for next iteration
+  col += 3;
+}
+
+// Set up binding so that movements of the Master controls both wheels
+powerBoth.bind("value", powerLeft, "value");
+powerBoth.bind("value", powerRight, "value");
+
+// Create a large emergency stop button
+var eStop = new qx.ui.form.Button("Emergency Stop");
+eStop.set(
+  {
+    textColor : "red"
+  });
+
+// When the emergency stop button is pressed, set all power to zero
+eStop.addListener("execute",
+  function(e)
+  {
+    powerLeft.setValue(0);
+    powerRight.setValue(0);
+    powerBoth.setValue(0);
+  },
+  this);
+
+// Add the emergency stop button to the grid, below the sliders
+container.add(eStop,
+              {
+                row     : 3,
+                column  : 0,
+                colSpan : 3 * sliders.length - 2,
+                rowSpan : 2
+              });
+
+// Create a map of sensor reading controls
+var sensors = {};
+
+// Create the group box for the sensor values
+grid = new qx.ui.layout.Grid();
+grid.setSpacing(5);
+var sensorValues = new qx.ui.groupbox.CheckGroupBox("Polling...");
+sensorValues.setLayout(grid);
+
+// Watch for changes to the check box
+sensorValues.addListener(
+  "changeValue",
+  function(e)
+  {
+    // Determine if polling is starting or ending
+    var bPoll = e.getData();
+
+    // Start or stop polling
+    if (bPoll)
+    {
+      finch.startSensorDataCollection(0);
+    }
+    else
+    {
+      finch.stopSensorDataCollection();
+    }
+
+    // Reset the group box label
+    this.setLegend(bPoll ? "Polling..." : "Not currently polling.");
+  },
+  this);
+
+// We'll place sensor reading controls at subsequent rows of the group box
+var row = 0;
+
+[
+  "accelerometer.x",
+  "accelerometer.y",
+  "accelerometer.z",
+  "light.left",
+  "light.right",
+  "obstacle.left",
+  "obstacle.right",
+  "temperature",
+  "requests/millisecond"
+].forEach(
+  function(sensor)
+  {
+    // As we iterate through each row, also set row alignment
+    grid.setRowAlign(row, "right", "middle");
+
+    // Create the sensor label and add it to the grid
+    var o = new qx.ui.basic.Label(sensor + ":");
+    sensorValues.add(o, { row : row, column : 0 });
+
+    // Create the sensor control and add it to the grid
+    sensors[sensor] = new qx.ui.form.TextField();
+    sensorValues.add(sensors[sensor], { row : row++, column : 1 });
+  }, this);
+
+// Add the sensor values to the overall container
+container.add(sensorValues, { row : 0, column : col, rowSpan : 3 });
+
+
+// Add checkboxes for beak colors
+var red = new qx.ui.form.CheckBox("Beak Red");
+var green = new qx.ui.form.CheckBox("Beak Green");
+var blue = new qx.ui.form.CheckBox("Beak Blue");
+
+// Create a function to be executed for beak color changes
+var _onBeakColorChange = function(e)
+{
+  finch.setBeakColor(red.getValue() * 255, 
+                     green.getValue() * 255,
+                     blue.getValue() * 255);
+};
+
+// For each checkbox...
+[
+  red,
+  green,
+  blue
+].forEach(
+  function(checkbox)
+  {
+    // ... add a color change listener, ...
+    checkbox.addListener("changeValue", _onBeakColorChange);
+    
+    // ... and add the checkbox to the container.
+    container.add(checkbox, { row : row++, column : col });
+  });
+  
+// Create a music button
+var music = new qx.ui.form.Button("Music");
+
+// When the music button is pressed, play a tone.
+music.addListener("execute", function(e) { finch.playTone(2600, 1000); });
+
+// Add the music button to the overall container
+container.add(music, { row : row++, column : col });
+
+// Create a disconnect button
+var disconnect = new qx.ui.form.Button("Disconnect");
+
+// When the button is pressed, issue a disconnect request to the Finch.
+disconnect.addListener("execute", function(e) { finch.disconnect(); });
+
+// Add the disconnect button to the overall container
+container.add(disconnect, { row : row++, column : col });
+
+// Add the overall container to the page
+this.getRoot().add(container, { top : 10 });
+
+// Keep a running total of the number of requests issued
+var requestCount = 0;
+
+// Track the time of the first request
+var firstRequestTime = new Date().getTime();
+
+// Arrange to be notified when there is sensor data available
+finch.addListener("sensorData", _onSensorData);
+
+// Start collecting sensor data
+finch.startSensorDataCollection(0);
+</textarea>
+
+<textarea class="qx_samples" title="Finch Flute">
+// Gain access to our finch
+var finch = new playground.Finch();
+
+/**
+ * Utility function to determine if the left obstacle sensor is detecting
+ * an obstacle
+ *
+ * @param sensorData {Map}
+ *   Map containing the sensor data.
+ *
+ * @return {Boolean}
+ *   true if the sensor is detecting an obstacle;
+ *   false otherwise
+ */
+function isLeftObstacle(sensorData)
+{
+  return sensorData.obstacle.left;
+}
+
+
+/**
+ * Utiilty function to determine if the right obstacle sensor is detecting
+ * an obstacle
+ *
+ * @param sensorData {Map}
+ *   Map containing the sensor data.
+ *
+ * @return {Boolean}
+ *   true if the sensor is detecting an obstacle;
+ *   false otherwise
+ */
+function isRightObstacle(sensorData)
+{
+  return sensorData.obstacle.right;
+}
+
+/**
+ * Utility function to determine if the left light sensor is detecting lots
+ * of light. This converts the "analog" light value in the range [0, 255]
+ * to a boolean value that reflects whether the light is being blocked from
+ * the sensor.
+ *
+ * @param sensorData {Map}
+ *   Map containing the sensor data.
+ *
+ * @return {Boolean}
+ *   true if the sensor detects only a small amount of light
+ *   false otherwise
+ */
+function isLeftLight(sensorData)
+{
+  return sensorData.light.left < 50;
+}
+
+/**
+ * Utiity function to determine if the right light sensor is detecting lots of
+ * light. This converts the "analog" light value in the range [0, 255] to a
+ * boolean value that reflects whether the light is being blocked from the
+ * sensor.
+ *
+ * @param sensorData {Map}
+ *   Map containing the sensor data.
+ *
+ * @return {Boolean}
+ *   true if the sensor detects only a small amount of light
+ *   false otherwise
+ */
+function isRightLight(sensorData)
+{
+  sensors["light.right"].setValue(sensorData.light.right.toString());
+  return sensorData.light.right < 50;
+}
+
+
+/**
+ * Event handler function. This function is called when sensor data is
+ * available.
+ *
+ * @param e {qx.event.type.Data}
+ *   An event object. The sensor data can be retrieved with e.getData()
+ */
+function _onSensorData(e)
+{
+  // Get the sensor data
+  var sensorData = e.getData();
+
+  // Do something with the data
+}
+
+
+//
+// MAIN PROGRAM
+//
+
+// Table of frequency values to pass to finch.playTone()
+var freqencyTable = 
+{
+  "off" : 0,
+  "1:C"   : 523,
+  "1:C#"  : 554,
+  "1:D"   : 587,
+  "1:D#"  : 622,
+  "1:E"   : 659,
+  "1:F"   : 698,
+  "1:F#"  : 739,
+  "1:G"   : 784,
+  "1:G#"  : 831,
+  "1:A"   : 880,
+  "1:A#"  : 932,
+  "1:B"   : 987,
+  "2:C"   : 1047,
+  "2:C#"  : 1109,
+  "2:D"   : 1175
+};
+
+
+// Add a listener for sensor data
+finch.addListener("sensorData", _onSensorData);
+
+// Complete the main program
+</textarea>
+
+<textarea class="qx_samples" title="Finch Dance">
+// Gain access to our finch
+var finch = new playground.Finch();
+
+// Get the timer singleton.
+var timer = qx.util.TimerManager.getInstance();
+
+// Complete your program here
+</textarea>
+
+<div id="compare_div1" visibility="hidden"></div>
+<div id="compare_div2" visibility="hidden"></div>
+
+
+<textarea class="qx_samples" title="Hello World">// Create a button
+var button1 = new qx.ui.form.Button("First Button", "icon/22/apps/internet-web-browser.png");
+
+// Document is the application root
+var doc = this.getRoot();
+
+// Add button to document at fixed coordinates
+doc.add(button1,
+{
+  left : 100,
+  top  : 50
+});
+
+// Add an event listener
+button1.addListener("execute", function(e) {
+  alert("Hello World!");
+});</textarea>
+
+<!-- ********************************************************************** -->
+
+<textarea class="qx_samples" title="Window">var win = new qx.ui.window.Window("First Window");
+win.setWidth(300);
+win.setHeight(200);
+win.setShowMinimize(false);
+
+this.getRoot().add(win, {left:20, top:20});
+win.open();</textarea>
+
+<!-- ********************************************************************** -->
+
+<textarea class="qx_samples" title="Webbrowser">var surfTo = function(url)
+{
+  if (url.indexOf("http://") !== 0) {
+    url = "http://" + url;
+    txtUrl.setValue(url);
+  }
+
+  iframe.setSource(url);
+};
+  
+
+var win = new qx.ui.window.Window(
+  "Web Browser",
+  "icon/16/categories/internet.png"
+);
+
+var layout = new qx.ui.layout.VBox();
+layout.setSeparator("separator-vertical");
+win.setLayout(layout);
+win.setShowMinimize(false);
+win.setAllowClose(false);
+win.setContentPadding(0);
+win.open();
+
+var toolbar = new qx.ui.toolbar.ToolBar();
+win.add(toolbar);
+
+var btnBack = new qx.ui.toolbar.Button(null, "icon/16/actions/go-previous.png");
+btnBack.addListener("execute", function(e) {
+   iframe.getWindow().history.back();
+});
+toolbar.add(btnBack);
+
+var btnForward = new qx.ui.toolbar.Button(null, "icon/16/actions/go-next.png");
+btnForward.addListener("execute", function(e) {
+  iframe.getWindow().history.forward();
+});
+toolbar.add(btnForward);
+
+// IE does not allow access to an iframes history object
+// Firefox applies history changes to the main window
+// Opera throws a script error when trying to go forward or back
+
+var ttIeNote = new qx.ui.tooltip.ToolTip("This feature is currently not supported.");
+
+btnForward.setEnabled(false);
+btnBack.setEnabled(false);
+
+btnForward.setToolTip(ttIeNote);
+btnBack.setToolTip(ttIeNote);
+
+var txtUrl = new qx.ui.form.TextField().set({
+   marginLeft: 1,
+   value: "http://qooxdoo.org",
+   padding: 2,
+   alignY: "middle"
+});
+txtUrl.addListener("keypress", function(e) {
+  if (e.getKeyIdentifier() == "Enter") {
+     surfTo(txtUrl.getValue());
+   }
+});
+toolbar.add(txtUrl, {flex: 1});
+
+btnGo = new qx.ui.toolbar.Button(null, "icon/16/actions/media-playback-start.png");
+btnGo.addListener("execute", function(e) {
+    surfTo(txtUrl.getValue());
+});
+toolbar.add(btnGo);
+
+var iframe = new qx.ui.embed.Iframe().set({
+   width: 600,
+   height: 500,
+   minWidth: 200,
+   minHeight: 150,
+   source: txtUrl.getValue(),
+   decorator : null
+});
+win.add(iframe, {flex: 1});
+
+this.getRoot().add(win, {left: 40, top: 30});</textarea>
+
+<!-- ********************************************************************** -->
+
+<textarea class="qx_samples" title="Dialog">var layout = new qx.ui.layout.Grid(9, 5);
+layout.setColumnAlign(0, "right", "top");
+layout.setColumnAlign(2, "right", "top");
+layout.setColumnWidth(1, 160);
+layout.setColumnWidth(2, 72);
+layout.setColumnWidth(3, 108);
+
+
+var container = new qx.ui.tabview.TabView();
+var page = new qx.ui.tabview.Page("Page");
+page.setLayout(layout);
+page.setPadding(10);
+container.add(page);
+
+this.getRoot().add(container, {left:40, top:40});
+
+labels = ["First Name", "Last Name", "City", "Country", "Notes"];
+for (var i=0; i < labels.length; i++) {
+  page.add(new qx.ui.basic.Label(labels[i]).set({
+    allowShrinkX: false,
+    paddingTop: 3
+  }), {row: i, column : 0});
+}
+
+inputs = ["John", "Smith", "New York", "USA"];
+for (var i=0; i < inputs.length; i++) {
+  page.add(new qx.ui.form.TextField(inputs[i]), {row:i, column:1});
+}
+
+
+// text area
+page.add(new qx.ui.form.TextArea().set({
+  height: 250
+}), {row:4, column:1, colSpan: 3});
+
+
+// radio buttons
+page.add(new qx.ui.basic.Label("Sex").set({
+  allowShrinkX: false,
+  paddingTop: 3
+}), {row:0, column:2});
+
+var female = new qx.ui.form.RadioButton("female");
+var male = new qx.ui.form.RadioButton("male");
+
+var mgr = new qx.ui.form.RadioGroup();
+mgr.add(female, male);
+
+page.add(female, {row:0, column:3});
+page.add(male, {row:1, column:3});
+male.setValue(true);
+
+
+// check boxes
+page.add(new qx.ui.basic.Label("Hobbies").set({
+  allowShrinkX: false,
+  paddingTop: 3
+}), {row:2, column:2});
+page.add(new qx.ui.form.CheckBox("Reading"), {row:2, column:3});
+page.add(new qx.ui.form.CheckBox("Swimming").set({
+  enabled: false
+}), {row:3, column:3});
+
+
+// buttons
+var paneLayout = new qx.ui.layout.HBox().set({
+  spacing: 4,
+  alignX : "right"
+});
+var buttonPane = new qx.ui.container.Composite(paneLayout).set({
+  paddingTop: 11
+});
+page.add(buttonPane, {row:5, column: 0, colSpan: 4});
+
+okButton = new qx.ui.form.Button("OK", "icon/22/actions/dialog-apply.png");
+okButton.addState("default");
+buttonPane.add(okButton);
+
+cancelButton = new qx.ui.form.Button("Cancel", "icon/22/actions/dialog-cancel.png");
+buttonPane.add(cancelButton);</textarea>
+
+<!-- ********************************************************************** -->
+
+<textarea class="qx_samples" title="Calculator">var win = new qx.ui.window.Window("Calculator");
+win.setLayout(new qx.ui.layout.VBox(3));
+win.setShowMinimize(false);
+this.getRoot().add(win, {left:100, top:50}); 
+win.open();
+
+var display = new qx.ui.basic.Label("0").set({
+  allowGrowX: true,
+  allowGrowY: true,
+  textAlign : "right",
+  font: "bold",
+  decorator: "main"
+});
+win.add(display, {flex:1});
+
+var buttonContainer = new qx.ui.container.Composite();
+var grid = new qx.ui.layout.Grid(3, 3);
+buttonContainer.setLayout(grid);
+win.add(buttonContainer, {flex:6});
+
+var labels = [
+  ["MC", "M+", "M-", "MR"],
+  ["C", "&plusmn;", "&divide;", "*"],
+  ["7", "8", "9", "-"],
+  ["4", "5", "6", "+"],
+  ["1", "2", "3", "="],
+  ["0", null, ".", null]
+]; 
+
+var buttons = {};
+for (var row=0; row<6; row++) {
+  grid.setRowFlex(row, 1);
+  for (var column=0; column<4; column++) {
+    grid.setColumnFlex(column, 1);
+    var label = labels[row][column];
+    if (label) {
+      var button = new qx.ui.form.Button(label).set({
+        rich: true,
+        allowShrinkX: false
+      });
+      buttonContainer.add(button, {row: row, column: column});
+      buttons[label] = button;
+    }
+  }
+} 
+
+buttons["="].setLayoutProperties({rowSpan: 2});
+buttons["0"].setLayoutProperties({colSpan: 2}); 
+
+for (label in buttons) {
+  buttons[label].addListener("execute", function(e) {
+    var button = e.getTarget();
+    alert("Pressed: " + button.getLabel());
+  }, this);
+}
+win.addListener("keypress", function(e) {
+  alert("Key: " + e.getKeyIdentifier());
+}, this);</textarea>
+
+
+<!-- ********************************************************************** -->
+
+<textarea class="qx_samples" title="Table">function createRandomRows(rowCount) {
+  var rowData = [];
+  var now = new Date().getTime();
+  var dateRange = 400 * 24 * 60 * 60 * 1000; // 400 days
+  var nextId = 0;
+  for (var row = 0; row < rowCount; row++) {
+    var date = new Date(now + Math.random() * dateRange - dateRange / 2);
+    rowData.push([ nextId++, Math.random() * 10000, date, (Math.random() > 0.5) ]);
+  }
+  return rowData;
+}
+
+
+// window
+var win = new qx.ui.window.Window("Table").set({
+  layout : new qx.ui.layout.Grow(),
+  allowClose: false,
+  allowMinimize: false,
+  contentPadding: 0
+});
+this.getRoot().add(win);
+win.moveTo(30, 40);
+win.open();
+
+// table model
+var tableModel = new qx.ui.table.model.Simple();
+tableModel.setColumns([ "ID", "A number", "A date", "Boolean" ]);
+tableModel.setData(createRandomRows(1000));
+
+// make second column editable
+tableModel.setColumnEditable(1, true);
+
+// table
+var table = new qx.ui.table.Table(tableModel).set({
+  decorator: null
+});
+win.add(table);
+
+var tcm = table.getTableColumnModel();
+
+// Display a checkbox in column 3
+tcm.setDataCellRenderer(3, new qx.ui.table.cellrenderer.Boolean());
+
+// use a different header renderer
+tcm.setHeaderCellRenderer(2, new qx.ui.table.headerrenderer.Icon("icon/16/apps/office-calendar.png", "A date"));</textarea>
+
+<!-- ********************************************************************** -->
+
+<textarea class="qx_samples" title="Tree">// create the tree
+var tree = new qx.ui.tree.Tree();
+tree.set({
+  width: 150,
+  height: 300
+});
+this.getRoot().add(tree, {left: 10, top: 10});
+
+
+// create and set the tree root
+var root = new qx.ui.tree.TreeFolder("Desktop");
+tree.setRoot(root);
+
+// create some subitems
+var f1 = new qx.ui.tree.TreeFolder("Logos");
+var f2 = new qx.ui.tree.TreeFolder("TODO");
+var f3 = new qx.ui.tree.TreeFile("jsmag_js9.pdf");
+f3.setIcon("icon/22/mimetypes/text-html.png");
+root.add(f1, f2, f3);
+
+// create a third layer
+var f11 = new qx.ui.tree.TreeFile("Logo1.png");
+f11.setIcon("icon/22/mimetypes/media-image.png");
+var f12 = new qx.ui.tree.TreeFile("Logo2.png");
+f12.setIcon("icon/22/mimetypes/media-image.png");
+var f13 = new qx.ui.tree.TreeFile("Logo3.png");
+f13.setIcon("icon/22/mimetypes/media-image.png");
+f1.add(f11, f12, f13);
+
+// open the folders
+root.setOpen(true);
+f1.setOpen(true);</textarea>
+
+<!-- ********************************************************************** -->
+
+<textarea class="qx_samples" title="TreeVirtual">// We want to use some of the high-level node operation convenience
+// methods rather than manually digging into the TreeVirtual helper
+// classes.  Include the mixin that provides them.
+qx.Class.include(qx.ui.treevirtual.TreeVirtual,
+                 qx.ui.treevirtual.MNode);
+
+// Use an HBox to hold the tree and the groupbox
+var hBox = new qx.ui.container.Composite(new qx.ui.layout.HBox(20));
+this.getRoot().add(hBox, { edge : 30 });
+
+// tree
+var tree = new qx.ui.treevirtual.TreeVirtual(
+    [
+      "Tree",
+      "Permissions",
+      "Last Accessed"
+    ]);
+tree.set(
+  {
+    width  : 400
+  });
+tree.setAlwaysShowOpenCloseSymbol(true);
+
+// Obtain the resize behavior object to manipulate
+var resizeBehavior = tree.getTableColumnModel().getBehavior();
+
+// Ensure that the tree column remains sufficiently wide
+resizeBehavior.set(0, { width:"1*", minWidth:100  });
+
+hBox.add(tree);
+
+// tree data model
+var dataModel = tree.getDataModel();
+
+var te1 = dataModel.addBranch(null, "Desktop", true);
+tree.nodeSetLabelStyle(te1,
+                       "background-color: red; " +
+                       "color: white;" +
+                       "font-weight: bold;");
+
+var te1_1;
+
+dataModel.addBranch(te1, "Files", true);
+
+te1_1 = dataModel.addBranch(te1, "Workspace", true);
+var te = dataModel.addLeaf(te1_1, "Windows (C:)");
+dataModel.setColumnData(te, 1, "-rwxr-xr-x");
+dataModel.setColumnData(te, 2, "2007-01-30 22:54:03");
+te = dataModel.addLeaf(te1_1, "Documents (D:)");
+dataModel.setColumnData(te, 1, "-rwxr-xr-x");
+dataModel.setColumnData(te, 2, "2007-01-30 22:54:03");
+
+dataModel.addBranch(te1, "Network", true);
+
+te = dataModel.addBranch(te1, "Trash", true);
+tree.nodeSetCellStyle(te, "background-color: cyan;");
+
+var te2 = dataModel.addBranch(null, "Inbox", true);
+
+te = dataModel.addBranch(te2, "Spam", false);
+
+for (var i = 1; i < 3000; i++) {
+  dataModel.addLeaf(te, "Spam Message #" + i);
+}
+
+dataModel.addBranch(te2, "Sent", false);
+dataModel.addBranch(te2, "Trash", false);
+dataModel.addBranch(te2, "Data", false);
+dataModel.addBranch(te2, "Edit", false);
+
+dataModel.setData();
+
+var commandFrame = new qx.ui.groupbox.GroupBox("Control");
+commandFrame.setLayout(new qx.ui.layout.Canvas());
+
+hBox.add(commandFrame);
+
+var o = new qx.ui.basic.Atom("Current Selection: ");
+commandFrame.add(o, { left: 0, top: 6 });
+
+o = new qx.ui.form.TextField();
+o.set({ readOnly: true });
+commandFrame.add(o, { left : 4, right : 0, top : 20 });
+
+tree.addListener(
+  "changeSelection",
+  function(e)
+  {
+    // Get the list of selected nodes.  We're in single-selection mode,
+    // so there will be only one of them.
+    var nodes = e.getData();
+    if (nodes.length)
+    {
+      this.setValue(tree.getHierarchy(nodes[0].nodeId).join('/'));
+      buttonRemove.setEnabled(true);
+    }
+    else
+    {
+      this.setValue("");
+      buttonRemove.setEnabled(false);
+    }
+  },
+  o);
+
+var buttonRemove = new qx.ui.form.Button("Remove");
+buttonRemove.set({ enabled: false });
+commandFrame.add(buttonRemove, { top : 50, left : 0 });
+buttonRemove.addListener(
+  "execute",
+  function(e)
+  {
+    var selectedNodes = tree.getSelectedNodes();
+    for (var i = 0; i < selectedNodes.length; i++)
+    {
+      dataModel.prune(selectedNodes[i].nodeId, true);
+      dataModel.setData();
+    }
+  });
+
+o = new qx.ui.form.CheckBox("Exclude first-level tree lines?");
+o.set({ value: false });
+commandFrame.add(o, { top : 100, left : 0 });
+o.addListener("changeValue",
+              function(e)
+              {
+                tree.setExcludeFirstLevelTreeLines(e.getData());
+              });
+
+o = new qx.ui.form.CheckBox("Always show open/close symbol?");
+o.set({ value: true });
+commandFrame.add(o, { top : 120, left : 0 });
+o.addListener("changeValue",
+              function(e)
+              {
+                tree.setAlwaysShowOpenCloseSymbol(e.getData());
+              });
+
+o = new qx.ui.form.CheckBox("Remove open/close if found empty?");
+o.set({ value: true });
+commandFrame.add(o, { top : 140, left : 0 });
+tree.addListener("treeOpenWhileEmpty",
+                 function(e)
+                 {
+                   if (this.getValue())
+                   {
+                     var node = e.getData();
+                     tree.nodeSetHideOpenClose(node, true);
+                   }
+                 },
+                 o);
+
+o = new qx.ui.form.CheckBox("Open/close click selects row?");
+o.set({ value: false });
+commandFrame.add(o, { top : 160, left : 0 });
+o.addListener("changeValue",
+              function(e)
+              {
+                tree.setOpenCloseClickSelectsRow(e.getData());
+              });
+
+o = new qx.ui.form.CheckBox("Disable the tree?");
+o.set({ value: false });
+commandFrame.add(o, { top : 180, left : 0 });
+o.addListener("changeValue",
+              function(e)
+              {
+                tree.setEnabled(! e.getData());
+              });</textarea>
+
+<!-- ********************************************************************** -->
+
+<textarea class="qx_samples" title="Data Binding">/**
+ * Bind a textfield to a label
+ */
+var textfield = new qx.ui.form.TextField("Change me...");
+textfield.setLiveUpdate(true);
+this.getRoot().add(textfield, {left: 10, top: 10});
+var label = new qx.ui.basic.Label("Change me...");
+this.getRoot().add(label, {left: 120, top: 12});
+// bind the textfield to the label
+textfield.bind("changeValue", label, "value");
+
+/**
+ * Bind two slider together
+ */
+var slider1 = new qx.ui.form.Slider("horizontal");
+slider1.setWidth(300);
+this.getRoot().add(slider1, {left: 10, top: 50});
+var slider2 = new qx.ui.form.Slider("horizontal");
+slider2.setWidth(200);
+this.getRoot().add(slider2, {left: 10, top: 80});
+// set up the bidirectional single value binding
+slider1.bind("value", slider2, "value");
+slider2.bind("value", slider1, "value");</textarea>
+
+
+<!-- ********************************************************************** -->
+
+<textarea class="qx_samples" title="YQL Binding">var query = "select * from feed where url='http://feeds.feedburner.com/qooxdoo/news/content'";
+
+var delegate = {manipulateData : function(data) {
+  return data.query.results.item;
+}};
+
+var store = new qx.data.store.Yql(query, delegate);
+
+var list = new qx.ui.form.List();
+list.setWidth(250);
+this.getRoot().add(list);
+
+var controller = new qx.data.controller.List(null, list, "title");
+
+store.bind("model", controller, "model");</textarea>
+
+
+  <script type="text/javascript" src="script/playground.js"></script>
+</body>
+</html>
